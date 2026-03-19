@@ -129,17 +129,34 @@ Output JSON only with nodes and edges:"""
             
             # 提取和验证类型
             node_type = n.get("type", "")
-            if node_type not in VALID_NODE_TYPES:
-                continue
             
-            # 提取和清理名称
-            name = n.get("name", "")
+            # 字段名映射：支持 name, id, label
+            name = n.get("name") or n.get("label") or n.get("id") or ""
+            
             if not name:
                 continue
             
-            # 转换中文名称为英文 slug
-            name = self._transliterate_name(str(name))
-            name = self._clean_name(name)
+            # 如果 type 不是标准类型，尝试推断
+            if node_type not in VALID_NODE_TYPES:
+                # 根据 label/id 内容推断
+                name_lower = name.lower()
+                if any(k in name_lower for k in ['install', 'run', 'build', 'create', 'setup', 'download', 'config']):
+                    node_type = "TASK"
+                elif any(k in name_lower for k in ['docker', 'pip', 'apt', 'npm', 'curl', 'git']):
+                    node_type = "SKILL"
+                elif any(k in name_lower for k in ['error', 'fail', 'exception', 'timeout', 'refused']):
+                    node_type = "EVENT"
+                else:
+                    # 默认为 TASK
+                    node_type = "TASK"
+            
+            # 转换中文名称为英文 slug（如果需要）
+            name = str(name)
+            if re.search(r'[\u4e00-\u9fff]', name):
+                name = self._transliterate_name(name)
+                name = self._clean_name(name)
+            else:
+                name = self._clean_name(name)
             
             if not name or len(name) < 2:
                 continue
@@ -152,6 +169,20 @@ Output JSON only with nodes and edges:"""
             }
             nodes.append(node)
             node_names[name] = node
+        
+        # 构建原始名称到节点名称的映射（用于边匹配）
+        original_to_clean = {}
+        for n in result.get("nodes", []):
+            original = n.get("name") or n.get("label") or n.get("id") or ""
+            if original:
+                original_lower = original.lower()
+                # 如果是中文，转换
+                if re.search(r'[\u4e00-\u9fff]', original):
+                    cleaned = self._transliterate_name(original)
+                    cleaned = self._clean_name(cleaned)
+                    original_to_clean[original_lower] = cleaned
+                else:
+                    original_to_clean[original_lower] = self._clean_name(original)
         
         # 规范化边
         edges = []
@@ -174,21 +205,39 @@ Output JSON only with nodes and edges:"""
             if not from_id or not to_id:
                 continue
             
-            # 如果是名称，尝试匹配已有节点
-            from_id_normalized = self._clean_name(from_id)
-            to_id_normalized = self._clean_name(to_id)
+            # 尝试匹配节点：先清理，再查找
+            from_id_clean = self._clean_name(from_id)
+            to_id_clean = self._clean_name(to_id)
             
-            # 查找对应的节点
-            if from_id_normalized in node_names:
-                from_id = node_names[from_id_normalized].get("id", from_id)
-            if to_id_normalized in node_names:
-                to_id = node_names[to_id_normalized].get("id", to_id)
+            # 如果清理后找不到，尝试原始名称映射
+            from_id_lower = from_id.lower()
+            to_id_lower = to_id.lower()
             
-            edges.append({
-                "from_id": from_id,
-                "to_id": to_id,
-                "type": edge_type
-            })
+            matched_from = None
+            matched_to = None
+            
+            # 查找 from_id
+            for node_name, node_obj in node_names.items():
+                if (from_id_clean and node_name == from_id_clean) or \
+                   (from_id_lower in original_to_clean and original_to_clean[from_id_lower] == node_name) or \
+                   from_id_lower == node_name:
+                    matched_from = node_obj.get("id", node_name)
+                    break
+            
+            # 查找 to_id
+            for node_name, node_obj in node_names.items():
+                if (to_id_clean and node_name == to_id_clean) or \
+                   (to_id_lower in original_to_clean and original_to_clean[to_id_lower] == node_name) or \
+                   to_id_lower == node_name:
+                    matched_to = node_obj.get("id", node_name)
+                    break
+            
+            if matched_from and matched_to:
+                edges.append({
+                    "from_id": matched_from,
+                    "to_id": matched_to,
+                    "type": edge_type
+                })
         
         return {"nodes": nodes, "edges": edges}
     

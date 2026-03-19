@@ -262,8 +262,8 @@ class GraphMemory:
                 name_to_id[node_data["name"]] = node["id"]
             
             for edge_data in result.get("edges", []):
-                from_id = name_to_id.get(edge_data["from"])
-                to_id = name_to_id.get(edge_data["to"])
+                from_id = name_to_id.get(edge_data.get("from_id") or edge_data.get("from"))
+                to_id = name_to_id.get(edge_data.get("to_id") or edge_data.get("to"))
                 
                 if from_id and to_id:
                     self.db.upsert_edge(
