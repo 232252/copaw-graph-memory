@@ -1,0 +1,11 @@
+{
+  "llm_config": {
+    "api_key": "YOUR_API_KEY_HERE",
+    "base_url": "https://api.minimaxi.com/v1",
+    "model": "MiniMax-M2.7"
+  },
+  "db_path": "~/.copaw/graph_memory.db",
+  "compact_turn_count": 6,
+  "recall_max_nodes": 6,
+  "recall_max_depth": 2
+}

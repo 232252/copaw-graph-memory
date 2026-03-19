@@ -33,31 +33,46 @@ metadata:
 - **上下文压缩**: 7轮对话 95K tokens → 24K，**75% 压缩率**
 - **零依赖**: 仅使用 Python 内置 `sqlite3`，NumPy 可选（用于 PageRank）
 
+## 安装
+
+```bash
+git clone https://github.com/232252/copaw-graph-memory.git
+cd copaw-graph-memory
+pip install numpy  # 可选
+```
+
 ## 快速开始
 
-### 初始化配置
+### 1. 配置 API
 
+**方式一：环境变量（推荐）**
+```bash
+export GM_LLM_API_KEY="your-api-key"
+export GM_LLM_BASE_URL="https://api.minimaxi.com/v1"
+export GM_LLM_MODEL="MiniMax-M2.7"
+```
+
+**方式二：代码配置**
 ```python
 from graph_memory import GraphMemory
 
-# 使用 MiniMax API（CoPaw 当前配置）
 gm = GraphMemory(
     llm_config={
-        "api_key": "sk-cp-XOHAixI-9cgve5KMm-l-bms1DYFHk0r5PdXhccohpNGpHPigfJIQCE_vFXNn6loeJieW2OE0kNfhw9Li5ta9XOBwybXKRpQSpbr6-f6khFCFiN4gR3kSR_Y",
+        "api_key": "YOUR_API_KEY_HERE",  # 替换为你的 API key
         "base_url": "https://api.minimaxi.com/v1",
         "model": "MiniMax-M2.7"
     }
 )
 ```
 
-### 基本使用
+### 2. 基本使用
 
 ```python
 # 记录消息
 gm.ingest("session123", "user", "帮我安装 bilibili-mcp")
 gm.ingest("session123", "assistant", "正在安装...")
 
-# 提取知识（对话结束后或积累足够消息后）
+# 提取知识
 result = gm.extract("session123")
 print(f"提取了 {result.get('extracted_count', 0)} 个节点")
 
@@ -69,11 +84,11 @@ print(context)
 stats = gm.get_stats()
 print(f"节点: {stats['nodes']}, 边: {stats['edges']}")
 
-# 执行维护（定期运行）
+# 执行维护
 gm.maintain()
 ```
 
-### CLI 工具
+### 3. CLI 工具
 
 ```bash
 # 统计
@@ -84,45 +99,39 @@ python -m graph_memory.cli search "docker"
 
 # 维护
 python -m graph_memory.cli maintain
-
-# 查看帮助
-python -m graph_memory.cli --help
 ```
 
 ## API 配置
 
-### 使用 MiniMax（推荐，CoPaw 当前配置）
-
+### MiniMax
 ```python
 gm = GraphMemory(
     llm_config={
-        "api_key": "sk-cp-XOHAixI-9cgve5KMm-l-bms1DYFHk0r5PdXhccohpNGpHPigfJIQCE_vFXNn6loeJieW2OE0kNfhw9Li5ta9XOBwybXKRpQSpbr6-f6khFCFiN4gR3kSR_Y",
+        "api_key": "YOUR_API_KEY",
         "base_url": "https://api.minimaxi.com/v1",
         "model": "MiniMax-M2.7"
     }
 )
 ```
 
-### 使用 OpenAI 兼容 API
-
+### OpenAI 兼容
 ```python
 gm = GraphMemory(
     llm_config={
-        "api_key": "your-api-key",
+        "api_key": "YOUR_API_KEY",
         "base_url": "https://api.openai.com/v1",
         "model": "gpt-4o-mini"
     }
 )
 ```
 
-## 工具列表
-
-| 工具 | 说明 |
+### 环境变量
+| 变量 | 说明 |
 |------|------|
-| `gm_search` | 搜索知识图谱 |
-| `gm_record` | 手动记录知识 |
-| `gm_stats` | 查看统计信息 |
-| `gm_maintain` | 执行图维护 |
+| `GM_LLM_API_KEY` | API 密钥 |
+| `GM_LLM_BASE_URL` | API 地址 |
+| `GM_LLM_MODEL` | 模型名称 |
+| `GM_DB_PATH` | 数据库路径 |
 
 ## 配置参数
 

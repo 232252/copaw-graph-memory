@@ -70,19 +70,40 @@ class GraphMemory:
         初始化知识图谱
         
         Args:
-            db_path: 数据库路径
+            db_path: 数据库路径（支持环境变量 GM_DB_PATH）
             llm_config: LLM 配置 {"api_key": "...", "model": "...", "base_url": "..."}
+                       支持环境变量: GM_LLM_API_KEY, GM_LLM_BASE_URL, GM_LLM_MODEL
             embedding_config: Embedding 配置（可选）
             llm_fn: 自定义 LLM 调用函数，签名为 (system: str, user: str) -> str
             **kwargs: 其他配置参数
         """
+        import os
+        
         # 合并配置
         self.config = {**DEFAULT_CONFIG, **kwargs}
         
+        # 环境变量覆盖
+        env_db_path = os.environ.get("GM_DB_PATH")
+        if env_db_path:
+            self.config["db_path"] = env_db_path
         if db_path:
             self.config["db_path"] = db_path
+        
+        # LLM 配置：从环境变量或参数
         if llm_config:
             self.config["llm_config"] = llm_config
+        else:
+            env_api_key = os.environ.get("GM_LLM_API_KEY")
+            env_base_url = os.environ.get("GM_LLM_BASE_URL")
+            env_model = os.environ.get("GM_LLM_MODEL")
+            
+            if env_api_key or env_base_url or env_model:
+                self.config["llm_config"] = {
+                    "api_key": env_api_key or "",
+                    "base_url": env_base_url or "https://api.openai.com/v1",
+                    "model": env_model or "gpt-4o-mini"
+                }
+        
         if embedding_config:
             self.config["embedding_config"] = embedding_config
         
@@ -92,8 +113,8 @@ class GraphMemory:
         # 初始化 LLM 函数
         if llm_fn:
             self._llm_fn = llm_fn
-        elif llm_config:
-            self._llm_fn = self._create_llm_fn(llm_config)
+        elif self.config.get("llm_config"):
+            self._llm_fn = self._create_llm_fn(self.config["llm_config"])
         else:
             self._llm_fn = self._default_llm_fn
         
