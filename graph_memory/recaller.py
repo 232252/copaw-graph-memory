@@ -11,6 +11,7 @@ Graph Memory 召回模块
 from typing import List, Dict, Any, Optional, Tuple
 from collections import defaultdict
 from .db import GraphDB
+from .pprank import PersonalizedPageRank
 
 
 # 节点类型优先级
@@ -33,6 +34,10 @@ class Recaller:
         self.max_nodes = config.get("recall_max_nodes", 6)
         self.max_depth = config.get("recall_max_depth", 2)
         self.token_budget = config.get("token_budget", 4000)
+        self.ppr = PersonalizedPageRank(
+            damping=config.get("pagerank_damping", 0.85),
+            iterations=config.get("pagerank_iterations", 20)
+        )
     
     def recall(self, query: str, include_all: bool = False) -> Dict[str, Any]:
         """
@@ -60,10 +65,10 @@ class Recaller:
         if not nodes:
             return {"nodes": [], "edges": [], "token_estimate": 0, "communities": {}}
         
-        # 3. 排序：session 来源 > 类型优先级 > validatedCount > pagerank
-        nodes = self._sort_nodes(nodes, seed_ids)
+        # 3. 使用 Personalized PageRank 排序
+        nodes = self.ppr.rank_nodes(nodes, edges, seed_ids)
         
-        # 4. 限制数量或全量
+        # 4. 限制数量
         if not include_all:
             nodes = nodes[:self.max_nodes]
         
