@@ -1,118 +1,170 @@
-# Graph Memory for CoPaw
+# 🧠 Graph Memory
 
-基于 [adoresever/graph-memory](https://github.com/adoresever/graph-memory) 的 Python 实现，专为 CoPaw AI Agent 设计的知识图谱记忆引擎。
+> Knowledge Graph Memory Engine for CoPaw AI Agent
 
-## 功能特性
+[English](./README.md) | [中文](./README_ZH.md)
 
-- **3种节点类型**: TASK（任务）、SKILL（技能）、EVENT（事件)
-- **5种边类型**: USED_SKILL、SOLVED_BY、REQUIRES、PATCHES、CONFLICTS_WITH
-- **跨对话召回**: FTS5 全文搜索 + 图遍历 + Personalized PageRank
-- **上下文压缩**: 7轮对话 95K tokens → 24K，**75% 压缩率**
-- **社区聚类**: 自动将相关技能聚类
-- **零依赖**: 仅使用 Python 内置 `sqlite3`，无需安装额外包
+## What is Graph Memory?
 
-## 安装
+Graph Memory is a knowledge graph-based memory system for AI agents. It extracts structured knowledge triples (nodes + relationships) from conversations, enabling:
+
+- **Cross-session recall** - Remember past solutions without repeating mistakes
+- **Context compression** - 75% token reduction (95K → 24K for 7-round conversations)
+- **Structured knowledge** - Task, Skill, Event nodes with typed relationships
+
+## Quick Start
+
+### Installation
 
 ```bash
-# 克隆仓库
-git clone https://github.com/yourname/copaw-graph-memory.git
+# Clone the repository
+git clone https://github.com/232252/copaw-graph-memory.git
 cd copaw-graph-memory
 
-# 或者复制到 CoPaw skills 目录
-cp -r graph_memory ~/.copaw/workspaces/default/skills/
+# Install optional dependency (for PageRank)
+pip install numpy
 ```
 
-## 快速开始
+### Python API
 
 ```python
 from graph_memory import GraphMemory
 
-# 初始化
+# Initialize
 gm = GraphMemory(
     llm_config={
-        "api_key": "YOUR_API_KEY",
+        "api_key": "your-api-key",
         "model": "gpt-4o-mini",
         "base_url": "https://api.openai.com/v1"
     }
 )
 
-# 记录消息
+# Record messages
 gm.ingest("session123", "user", "帮我安装 bilibili-mcp")
 gm.ingest("session123", "assistant", "正在安装...")
 
-# 提取知识（每轮对话后调用）
+# Extract knowledge (after conversation)
 result = gm.extract("session123")
-print(f"提取了 {result['extracted_count']} 个节点")
 
-# 召回相关知识
-recall_result = gm.recall("bilibili")
-print(f"召回 {len(recall_result['nodes'])} 个相关节点")
-
-# 获取上下文
-context = gm.assemble_context("bilibili", fresh_messages=recent_msgs)
+# Recall relevant knowledge
+context = gm.assemble_context("bilibili")
 ```
 
-## CoPaw 工具
+### CLI Usage
 
-注册为工具后可用：
+```bash
+# View statistics
+python -m graph_memory.cli stats
 
-| 工具 | 说明 |
-|------|------|
-| `gm_search` | 搜索知识图谱 |
-| `gm_record` | 手动记录知识 |
-| `gm_stats` | 查看统计信息 |
-| `gm_maintain` | 执行图维护 |
+# Search knowledge
+python -m graph_memory.cli search "docker"
 
-## 配置参数
+# Record knowledge manually
+python -m graph_memory.cli record \
+  --type SKILL \
+  --name docker-build \
+  --description "Build Docker image" \
+  --content "docker-build\nTrigger: When building images..."
 
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| `db_path` | `~/.copaw/graph_memory.db` | 数据库路径 |
-| `compact_turn_count` | `6` | 触发提取的消息数 |
-| `recall_max_nodes` | `6` | 召回的最大节点数 |
-| `recall_max_depth` | `2` | 图遍历深度 |
-| `pagerank_damping` | `0.85` | PageRank 阻尼系数 |
+# Run maintenance
+python -m graph_memory.cli maintain
 
-## 工作原理
-
-```
-消息输入 → 消息存储（零 LLM）
-          └→ 信号检测 → 知识提取（LLM）
-
-对话结束 → 知识整理（LLM）
-          └→ 图维护（去重、PageRank）
-
-新对话 → 召回
-         ├→ FTS5 搜索找种子节点
-         ├→ 图遍历扩展
-         ├→ PageRank 排序
-         └→ 注入上下文
+# Check upstream
+python -m graph_memory.cli sync
 ```
 
-## 数据库结构
+## Architecture
 
-| 表 | 说明 |
-|----|------|
-| `gm_nodes` | 知识节点（带 pagerank、community_id） |
-| `gm_edges` | 关系边 |
-| `gm_messages` | 原始对话消息 |
-| `gm_messages_fts` | FTS5 全文索引 |
-| `gm_nodes_fts` | 节点 FTS 索引 |
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Graph Memory                             │
+├─────────────────────────────────────────────────────────────┤
+│  Message In → Store (zero LLM)                              │
+│              └→ Signal Detection → Knowledge Extraction      │
+│                                                              │
+│  Session End → Knowledge Organization (LLM)                  │
+│              └→ Graph Maintenance (dedup, PageRank)         │
+│                                                              │
+│  New Session → Recall                                        │
+│              ├→ FTS5 search for seed nodes                  │
+│              ├→ Graph traversal expansion                   │
+│              ├→ PageRank ranking                            │
+│              └→ Inject into context                          │
+└─────────────────────────────────────────────────────────────┘
+```
 
-## 与原版对比
+## Knowledge Graph Structure
 
-| 特性 | 原版 (TypeScript) | Python 版 |
-|------|------------------|----------|
-| 依赖 | Node.js + npm | Python 标准库 |
-| 向量搜索 | 需要配置 | FTS5（内置） |
-| PageRank | 实现 | 实现 |
-| 社区检测 | 实现 | 待实现 |
-| 安装 | `pnpm openclaw plugins install` | `pip install` 或直接复制 |
+### Node Types
 
-## 来源
+| Type | Description | Example |
+|------|-------------|---------|
+| `TASK` | User-requested tasks | `install-bilibili-mcp` |
+| `SKILL` | Reusable operations | `pip-install-package` |
+| `EVENT` | Errors or exceptions | `importerror-libgl1` |
 
-灵感来自 [adoresever/graph-memory](https://github.com/adoresever/graph-memory)，MIT License。
+### Edge Types
+
+| Edge | Direction | Description |
+|------|-----------|-------------|
+| `USED_SKILL` | TASK → SKILL | Task uses a skill |
+| `SOLVED_BY` | EVENT → SKILL | Error solved by skill |
+| `REQUIRES` | SKILL → SKILL | Skill requires another |
+| `PATCHES` | SKILL → SKILL | New skill patches old one |
+| `CONFLICTS_WITH` | SKILL ↔ SKILL | Skills are mutually exclusive |
+
+## Configuration
+
+### Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `GM_LLM_API_KEY` | LLM API key |
+| `GM_LLM_BASE_URL` | LLM API base URL |
+| `GM_LLM_MODEL` | Model name (default: gpt-4o-mini) |
+| `GM_DB_PATH` | Database path |
+
+### Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `compact_turn_count` | 6 | Messages to trigger extraction |
+| `recall_max_nodes` | 6 | Max nodes to recall |
+| `recall_max_depth` | 2 | Graph traversal depth |
+| `pagerank_damping` | 0.85 | PageRank damping factor |
+
+## Database
+
+SQLite database with the following tables:
+
+| Table | Description |
+|-------|-------------|
+| `gm_nodes` | Knowledge nodes |
+| `gm_edges` | Relationships |
+| `gm_messages` | Raw conversation messages |
+| `gm_messages_fts` | FTS5 full-text index |
+| `gm_nodes_fts` | Node FTS index |
+
+## Comparison with Original
+
+| Feature | Original (TypeScript) | Python Version |
+|---------|----------------------|----------------|
+| Runtime | Node.js + npm | Python stdlib |
+| Database | @photostructure/sqlite | sqlite3 (built-in) |
+| Vector Search | Optional | FTS5 (built-in) |
+| PageRank | ✅ | ✅ |
+| Community Detection | ✅ | ✅ |
+
+## Upstream
+
+This project is inspired by [adoresever/graph-memory](https://github.com/adoresever/graph-memory), which is a TypeScript implementation for OpenClaw.
+
+The Python version is a standalone rewrite with equivalent functionality, designed for CoPaw and other Python-based agent systems.
 
 ## License
 
-MIT License
+MIT License - see [LICENSE](./LICENSE)
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit issues or pull requests.
