@@ -48,7 +48,7 @@ pip install numpy  # 可选
 **方式一：环境变量（推荐）**
 ```bash
 export GM_LLM_API_KEY="your-api-key"
-export GM_LLM_BASE_URL="http://192.168.110.125:3000/v1"
+export GM_LLM_BASE_URL="http://YOUR_API_URL:3000/v1"
 export GM_LLM_MODEL="MiniMax-Text-01"
 ```
 
@@ -59,7 +59,7 @@ from graph_memory import GraphMemory
 gm = GraphMemory(
     llm_config={
         "api_key": "YOUR_API_KEY_HERE",  # 替换为你的 API key
-        "base_url": "http://192.168.110.125:3000/v1",
+        "base_url": "http://YOUR_API_URL:3000/v1",
         "model": "MiniMax-Text-01"
     }
 )
@@ -108,7 +108,7 @@ python -m graph_memory.cli maintain
 gm = GraphMemory(
     llm_config={
         "api_key": "YOUR_API_KEY",
-        "base_url": "http://192.168.110.125:3000/v1",
+        "base_url": "http://YOUR_API_URL:3000/v1",
         "model": "MiniMax-Text-01"
     }
 )

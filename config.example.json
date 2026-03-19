@@ -1,7 +1,7 @@
 {
   "llm_config": {
     "api_key": "YOUR_API_KEY_HERE",
-    "base_url": "http://192.168.110.125:3000/v1",
+    "base_url": "YOUR_API_URL",
     "model": "MiniMax-M2.7"
   },
   "db_path": "~/.copaw/graph_memory.db",
