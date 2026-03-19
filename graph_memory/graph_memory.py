@@ -112,6 +112,9 @@ class GraphMemory:
         model = config.get("model", "gpt-4o-mini")
         base_url = config.get("base_url", "https://api.openai.com/v1")
         
+        # 检测是否为 MiniMax
+        is_minimax = "minimaxi" in base_url.lower()
+        
         def llm_fn(system: str, user: str) -> str:
             import requests
             
@@ -129,16 +132,31 @@ class GraphMemory:
                 "temperature": 0.1
             }
             
-            response = requests.post(
-                f"{base_url.rstrip('/')}/chat/completions",
-                headers=headers,
-                json=payload,
-                timeout=60
-            )
-            
-            response.raise_for_status()
-            data = response.json()
-            return data["choices"][0]["message"]["content"]
+            # MiniMax 使用不同的端点和响应格式
+            if is_minimax:
+                endpoint = f"{base_url.rstrip('/')}/text/chatcompletion_v2"
+                response = requests.post(
+                    endpoint,
+                    headers=headers,
+                    json=payload,
+                    timeout=60
+                )
+                response.raise_for_status()
+                data = response.json()
+                # MiniMax: 响应在 reasoning_content 或 content
+                return data["choices"][0]["message"].get("reasoning_content") or \
+                       data["choices"][0]["message"].get("content", "")
+            else:
+                endpoint = f"{base_url.rstrip('/')}/chat/completions"
+                response = requests.post(
+                    endpoint,
+                    headers=headers,
+                    json=payload,
+                    timeout=60
+                )
+                response.raise_for_status()
+                data = response.json()
+                return data["choices"][0]["message"]["content"]
         
         return llm_fn
     
