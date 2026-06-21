@@ -68,7 +68,7 @@ class GraphMemory:
     ):
         """
         初始化知识图谱
-        
+
         Args:
             db_path: 数据库路径（支持环境变量 GM_DB_PATH）
             llm_config: LLM 配置 {"api_key": "...", "model": "...", "base_url": "..."}
@@ -78,7 +78,8 @@ class GraphMemory:
             **kwargs: 其他配置参数
         """
         import os
-        
+        import threading
+
         # 合并配置
         self.config = {**DEFAULT_CONFIG, **kwargs}
         
@@ -125,6 +126,7 @@ class GraphMemory:
         
         # Session 状态
         self._msg_seq: Dict[str, int] = {}
+        self._extract_lock = threading.Lock()
         self._extract_running: Dict[str, bool] = {}
     
     def _create_llm_fn(self, config: Dict[str, Any]) -> Callable:
@@ -207,18 +209,18 @@ class GraphMemory:
     def extract(self, session_id: str, force: bool = False) -> Dict[str, Any]:
         """
         从当前会话提取知识
-        
+
         Args:
             session_id: 会话 ID
             force: 是否强制提取（忽略检查）
-        
+
         Returns:
             提取结果 {"nodes": [...], "edges": [...], "extracted_count": int}
         """
-        if self._extract_running.get(session_id) and not force:
-            return {"nodes": [], "edges": [], "error": "extraction in progress"}
-        
-        self._extract_running[session_id] = True
+        with self._extract_lock:
+            if self._extract_running.get(session_id) and not force:
+                return {"nodes": [], "edges": [], "error": "extraction in progress"}
+            self._extract_running[session_id] = True
         
         try:
             # 获取未提取的消息
@@ -287,9 +289,10 @@ class GraphMemory:
         
         except Exception as e:
             return {"nodes": [], "edges": [], "error": str(e)}
-        
+
         finally:
-            self._extract_running[session_id] = False
+            with self._extract_lock:
+                self._extract_running[session_id] = False
     
     # ─── 召回 ────────────────────────────────────────────────
     
@@ -502,6 +505,13 @@ class GraphMemory:
     def close(self):
         """关闭连接"""
         self.db.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
 
 
 # 便捷函数

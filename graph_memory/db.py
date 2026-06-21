@@ -124,18 +124,18 @@ class GraphDB:
     
     # ─── 节点操作 ───────────────────────────────────────────
     
-    def upsert_node(self, node_type: str, name: str, description: str, 
+    def upsert_node(self, node_type: str, name: str, description: str,
                     content: str, session_id: str) -> Dict[str, Any]:
         """插入或更新节点"""
         now = int(datetime.now().timestamp() * 1000)
-        
+
         existing = self.get_node_by_name(name)
         if existing:
             # 更新
             sessions = json.loads(existing["source_sessions"])
             if session_id not in sessions:
                 sessions.append(session_id)
-            
+
             self.conn.execute("""
                 UPDATE gm_nodes SET
                     description = ?,
@@ -145,28 +145,28 @@ class GraphDB:
                     updated_at = ?
                 WHERE name = ?
             """, (description, content, json.dumps(sessions), now, name))
-            
-            # 更新 FTS
+
+            # 更新 FTS - 先删除旧条目
             self.conn.execute("DELETE FROM gm_nodes_fts WHERE rowid=?", (existing["rowid"],))
-            
-            node_id = existing["id"]
+            rowid = existing["rowid"]
         else:
             # 新建
             node_id = str(uuid.uuid4())
-            self.conn.execute("""
+            cursor = self.conn.execute("""
                 INSERT INTO gm_nodes (id, type, name, description, content, source_sessions, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, (node_id, node_type, name, description, content, json.dumps([session_id]), now, now))
-        
-        # 重建 FTS
+            rowid = cursor.lastrowid
+
+        # 重建 FTS - 用正确的 rowid
         self.conn.execute("""
             INSERT INTO gm_nodes_fts(rowid, name, description, content)
-            SELECT rowid, name, description, content FROM gm_nodes WHERE id = ?
-        """, (node_id,))
-        
+            VALUES (?, ?, ?, ?)
+        """, (rowid, name, description, content))
+
         self.conn.commit()
-        
-        return self.get_node(node_id)
+
+        return self.get_node_by_name(name)
     
     def get_node(self, node_id: str) -> Optional[Dict[str, Any]]:
         """获取节点"""
@@ -310,6 +310,9 @@ class GraphDB:
     
     def graph_walk(self, seed_ids: List[str], max_depth: int = 2) -> Tuple[List[Dict], List[Dict]]:
         """从种子节点出发遍历图"""
+        if not seed_ids:
+            return [], []
+
         visited = set(seed_ids)
         queue = list(seed_ids)
         nodes_dict = {}
@@ -434,3 +437,12 @@ class GraphDB:
         if self._conn:
             self._conn.close()
             self._conn = None
+
+    def __enter__(self):
+        """支持 with 语句"""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """退出 with 时自动关闭"""
+        self.close()
+        return False

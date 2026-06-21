@@ -6,5 +6,5 @@ MIT License
 
 from .graph_memory import GraphMemory, create_graph_memory
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __all__ = ["GraphMemory", "create_graph_memory"]
