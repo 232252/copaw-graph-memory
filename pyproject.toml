@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "graph-memory"
+version = "1.0.1"
+description = "Knowledge Graph Memory Engine for CoPaw AI Agent"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "232252", email = "232252@users.noreply.github.com"}
+]
+keywords = ["graph-memory", "knowledge-graph", "ai-agent", "memory", "rag"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "numpy>=1.20",
+]
+
+[project.optional-dependencies]
+llm = [
+    "openai>=1.0",
+    "anthropic>=0.18",
+]
+dev = [
+    "pytest>=7.0",
+    "build>=0.10",
+    "twine>=4.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/232252/copaw-graph-memory"
+Repository = "https://github.com/232252/copaw-graph-memory"
+Issues = "https://github.com/232252/copaw-graph-memory/issues"
+
+[tool.setuptools]
+packages = ["graph_memory"]
+
+[tool.setuptools.package-data]
+graph_memory = ["*.json", "*.md"]
